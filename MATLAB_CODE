@@ -1,0 +1,100 @@
+%%% MATLAB-VISSIM-COM %%%%
+
+ % Start time 
+
+%%=========================================================================
+% INITIALIZE
+%==========================================================================
+clc;
+clear;
+close all;
+format compact;
+format shortG;
+
+% Variable declaration
+% global Vissim
+ 
+ %% === Read Field Data from Excel file ====================================
+
+% Input = xlsread('DATA.xlsx');
+% Real = mat2cell(Input,[3751],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]);
+%TARGET = xlsread('DATA.xlsx','C3:Z92');
+
+%% === Start Vissimsim-COM server Ver. 10.0 ==================================
+tic;
+global nwrk;
+nwrk=8;
+
+c = parallel.pool.Constant(@buildCOMObject);
+
+tic;
+volume=zeros(1:nwrk);
+speed=zeros(1:nwrk);
+
+
+hdwy=[0.5, 1.0, 1.5, 2.0,1.5,2.0,2.5,3.0];
+parfor idx = 1:nwrk
+    
+    parm=hdwy(idx)
+    [spd,vol]=Simulate(c.Value,parm)
+    
+    
+    volume(idx)=vol;
+    speed(idx)=spd;
+    
+end
+
+
+toc
+
+
+function v=buildCOMObject
+
+try
+    v=actxserver('Vissim.Vissim.110'); 
+    disp(' VissimSIM is started!');
+    catch
+         warning(' Error in starting Vissim. Check your Vissim version and its operation system (32-bit or 64-bit)!');
+end
+
+
+%% loading the Vissimsim Network *.inpx file given with the whole root
+access_path=pwd;   % You should only copy the project folder onto the current computer and open the Matlab Script file from there.
+
+try
+    v.LoadNet([access_path '\VISSIM_FILE.inpx']); % OR: Vissim.LoadNet('C:\VISSIM-Matlab-COM\VISSIM_FILE.inpx');
+    disp(' Network loading is done!');
+    catch
+         warning(' Error in loading Network file. Check your Network filename and path!'); 
+end
+
+feature('COM_SafeArraySingleDim', 1)
+
+
+
+
+% Simulation settings as an example
+sim=v.simulation; 
+
+period_time=600;                              % To set the length of the simulation
+sim.set('AttValue', 'SimPeriod', period_time); % You can edit it only outside the simulation. %The answer will be 3600. 
+%sim.break_at = 0;                              % simulation second [s] => 0 means no break!
+%set(v.Simulation, 'AttValue', 'SimBreakAt', Sim_break_at);
+step_time=10;                                  
+sim.set('AttValue', 'SimRes', step_time); 
+
+% Time Interval for data collection (sec). Here=120s (2 Minutes) means for each 120s during SimPeriod we will collect data.
+v.Evaluation.set('AttValue', 'DataCollCollectData', true);
+v.Evaluation.set('AttValue', 'DataCollInterval', 300);
+v.Evaluation.set('AttValue', 'DataCollFromTime',300);
+v.Evaluation.set('AttValue', 'DataCollToTime', 600);
+
+% Simulation Speed
+set(v.Graphics.CurrentNetworkWindow, 'AttValue', 'QuickMode', 1);
+sim.set('AttValue', 'UseMaxSimSpeed', true);   % Use Max Speed for Simulation sim.set('AttValue', 'UseAllCores', false);      % Use All CPU's COREs for Simulation
+sim.set('AttValue', 'UseAllCores', false); 
+
+
+end
+
+  
